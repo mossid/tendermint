@@ -794,13 +794,19 @@ func (cs *ConsensusState) waitForTxs(height, round int) {
 }
 
 func (cs *ConsensusState) proposerHeartbeat(done chan struct{}) {
+	counter := 0
+	addr := cs.privValidator.GetAddress()
 	for {
 		select {
 		case <-done:
 			return
 		default:
-			// TODO: broadcast heartbeat
-
+			if cs.evsw != nil {
+				rs := cs.RoundStateEvent()
+				heartbeat := types.EventDataProposerHeartbeat{rs, addr, counter}
+				types.FireEventProposerHeartbeat(cs.evsw, heartbeat)
+				counter += 1
+			}
 			time.Sleep(time.Second)
 		}
 	}
