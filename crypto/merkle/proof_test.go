@@ -39,13 +39,16 @@ func DominoOpDecoder(pop ProofOp) (ProofOperator, error) {
 	return NewDominoOp(string(pop.Key), op.Input, op.Output), nil
 }
 
-func (dop DominoOp) ProofOp() ProofOp {
-	bz := amino.MustMarshalBinaryLengthPrefixed(dop)
-	return ProofOp{
-		Type: ProofOpDomino,
-		Key:  []byte(dop.key),
-		Data: bz,
-	}
+func (dop DominoOp) Type() string {
+	return ProofOpDomino
+}
+
+func (dop DominoOp) Encode() []byte {
+	return amino.MustMarshalBinaryLengthPrefixed(dop)
+}
+
+func (dop DominoOp) Argn() int {
+	return -1
 }
 
 func (dop DominoOp) Run(input [][]byte) (output [][]byte, err error) {

@@ -94,6 +94,16 @@ func (sp *SimpleProof) ComputeRootHash() []byte {
 	)
 }
 
+func (sp *SimpleProof) MakeProofOps(key []byte) []ProofOperator {
+	return makeProofOps(
+		key,
+		sp.Index,
+		sp.Total,
+		sp.LeafHash,
+		sp.Aunts,
+	)
+}
+
 // String implements the stringer interface for SimpleProof.
 // It is a wrapper around StringIndented.
 func (sp *SimpleProof) String() string {
@@ -141,6 +151,66 @@ func computeHashFromAunts(index int, total int, leafHash []byte, innerHashes [][
 			return nil
 		}
 		return innerHash(innerHashes[len(innerHashes)-1], rightHash)
+	}
+}
+
+func makeProofOps(key []byte, index int, total int, leafHash []byte, innerHashes [][]byte) []ProofOperator {
+	if index >= total || index < 0 || total <= 0 {
+		return nil
+	}
+	switch total {
+	case 0:
+		panic("Cannot call makeProofOps() with 0 total")
+	case 1:
+		if len(innerHashes) != 0 {
+			return nil
+		}
+		var res []ProofOperator
+		if key != nil {
+			res = []ProofOperator{
+				SHA256Op{},
+				PrependLengthOp{},
+				LiftKeyOp{key},
+				PrependLengthOp{},
+				ConcatOp{0, 2},
+			}
+		}
+		return append(res,
+			AppendOp{Prefix: leafPrefix},
+			SHA256Op{},
+		)
+	default:
+		if len(innerHashes) == 0 {
+			return nil
+		}
+		numLeft := getSplitPoint(total)
+		if index < numLeft {
+			leftOps := makeProofOps(key, index, numLeft, leafHash, innerHashes[:len(innerHashes)-1])
+			if leftOps == nil {
+				return nil
+			}
+			return append(
+				leftOps,
+				AppendOp{
+					Prefix: innerPrefix,
+					Suffix: innerHashes[len(innerHashes)-1],
+				},
+				SHA256Op{},
+			)
+		}
+		rightOps := makeProofOps(key, index-numLeft, total-numLeft, leafHash, innerHashes[:len(innerHashes)-1])
+		if rightOps == nil {
+			return nil
+		}
+		innerPrefix := []byte{1}
+		return append(
+			rightOps,
+			AppendOp{
+				Prefix: append(innerPrefix, innerHashes[len(innerHashes)-1]...),
+				Suffix: nil,
+			},
+			SHA256Op{},
+		)
 	}
 }
 

@@ -16,10 +16,22 @@ import (
 // to allow multiple leaves to be part of a single proof, for instance in a range proof.
 // ProofOp() encodes the ProofOperator in a generic way so it can later be
 // decoded with OpDecoder.
+// Argn() returns the minimal length of the argument of Run()
+// returns negative number if there is no restriction
 type ProofOperator interface {
 	Run([][]byte) ([][]byte, error)
 	GetKey() []byte
-	ProofOp() ProofOp
+	Type() string
+	Encode() []byte
+	Argn() int
+}
+
+func ToProofOp(op ProofOperator) ProofOp {
+	return ProofOp{
+		Type: op.Type(),
+		Key:  op.GetKey(),
+		Data: op.Encode(),
+	}
 }
 
 //----------------------------------------
@@ -52,6 +64,12 @@ func (poz ProofOperators) Verify(root []byte, keypath string, args [][]byte) (er
 			}
 			keys = keys[:len(keys)-1]
 		}
+		argn := op.Argn()
+		if argn >= 0 {
+			if len(args) < argn {
+				return cmn.NewError("expected %d arg, got %v", argn, len(args))
+			}
+		}
 		args, err = op.Run(args)
 		if err != nil {
 			return
@@ -68,6 +86,78 @@ func (poz ProofOperators) Verify(root []byte, keypath string, args [][]byte) (er
 
 //----------------------------------------
 // ProofRuntime - main entrypoint
+
+type OpValidator func([]ProofOperator) ([]ProofOperator, error)
+
+func OpType(ty string) OpValidator {
+	return func(ops []ProofOperator) ([]ProofOperator, error) {
+		if len(ops) < 1 {
+			return nil, cmn.NewError("not enough operators")
+		}
+		if ops[0].Type() != ty {
+			return nil, cmn.NewError("unexpected type")
+		}
+		return ops[1:], nil
+	}
+}
+
+func Oneof(vs ...OpValidator) OpValidator {
+	return func(ops []ProofOperator) (rest []ProofOperator, err error) {
+		for _, v := range vs {
+			rest, err = v(ops)
+			if err == nil {
+				return
+			}
+		}
+		return
+	}
+}
+
+func Sequence(vs ...OpValidator) OpValidator {
+	return func(ops []ProofOperator) (rest []ProofOperator, err error) {
+		for _, v := range vs {
+			ops, err = v(ops)
+			if err != nil {
+				return
+			}
+		}
+		rest = ops
+		return
+	}
+}
+
+func Repeat(v OpValidator) OpValidator {
+	return func(ops []ProofOperator) ([]ProofOperator, error) {
+		for {
+			irest, ierr := v(ops)
+			if ierr != nil {
+				return ops, nil
+			}
+			ops = irest
+		}
+	}
+}
+
+func Option(v OpValidator) OpValidator {
+	return func(ops []ProofOperator) ([]ProofOperator, error) {
+		rest, err := v(ops)
+		if err != nil {
+			return ops, nil
+		}
+		return rest, nil
+	}
+}
+
+func ValidateProofOperators(v OpValidator, ops []ProofOperator) error {
+	rest, err := v(ops)
+	if err != nil {
+		return err
+	}
+	if len(rest) != 0 {
+		return cmn.NewError("iii")
+	}
+	return nil
+}
 
 type OpDecoder func(ProofOp) (ProofOperator, error)
 
@@ -133,6 +223,12 @@ func (prt *ProofRuntime) Verify(proof *Proof, root []byte, keypath string, args 
 // defined in the IAVL package.
 func DefaultProofRuntime() (prt *ProofRuntime) {
 	prt = NewProofRuntime()
-	prt.RegisterOpDecoder(ProofOpSimpleValue, SimpleValueOpDecoder)
+	prt.RegisterOpDecoder(OpTypeAppend, OpDecoderAppend)
+	prt.RegisterOpDecoder(OpTypeSHA256, OpDecoderSHA256)
+	prt.RegisterOpDecoder(OpTypePrependLength, OpDecoderPrependLength)
+	prt.RegisterOpDecoder(OpTypeConcat, OpDecoderConcat)
+	prt.RegisterOpDecoder(OpTypeLiftKey, OpDecoderLiftKey)
+	prt.RegisterOpDecoder(OpTypeAssertValues, OpDecoderAssertValues)
+	prt.RegisterOpDecoder(OpTypeApply, OpDecoderApply)
 	return
 }
