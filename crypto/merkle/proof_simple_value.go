@@ -34,12 +34,18 @@ func OpValidatorSimpleKVLeaf(ops []ProofOperator) ([]ProofOperator, error) {
 //
 // SimpleValueOp =
 // optional SimpleKVLeafOp
+// AppendOp
+// SHA256Op
+// AssertValuesOp
 // repeated {
 //   AppendOp
 //   SHA256Op
 // }
 var opValidatorSimpleValue = Sequence(
 	Option(OpValidatorSimpleKVLeaf),
+	OpType(OpTypeAppend),
+	OpType(OpTypeSHA256),
+	OpType(OpTypeAssertValues),
 	Repeat(Sequence(
 		OpType(OpTypeAppend),
 		OpType(OpTypeSHA256),

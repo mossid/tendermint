@@ -178,6 +178,7 @@ func makeProofOps(key []byte, index int, total int, leafHash []byte, innerHashes
 		return append(res,
 			AppendOp{Prefix: leafPrefix},
 			SHA256Op{},
+			AssertValuesOp{Values: [][]byte{leafHash}},
 		)
 	default:
 		if len(innerHashes) == 0 {

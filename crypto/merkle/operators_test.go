@@ -8,7 +8,7 @@ import (
 )
 
 func randomGenerateProofOperator() ProofOperator {
-	switch rand.Intn(7) {
+	switch rand.Intn(5) {
 	case 0:
 		res := AppendOp{
 			Prefix: make([]byte, 32),
@@ -22,32 +22,37 @@ func randomGenerateProofOperator() ProofOperator {
 	case 2:
 		return PrependLengthOp{}
 	case 3:
-		return ConcatOp{
-			Begin: rand.Int(),
-			End:   rand.Int(),
-		}
+		/*
+			return ConcatOp{
+				Begin: rand.Int(),
+				End:   rand.Int(),
+			}
+		*/
+		return ConcatOp{}
 	case 4:
 		res := LiftKeyOp{
 			Key: make([]byte, 32),
 		}
 		rand.Read(res.Key)
 		return res
-	case 5:
-		res := AssertValuesOp{
-			Values: make([][]byte, 8),
-		}
-		for i := range res.Values {
-			rand.Read(res.Values[i])
-		}
-		return res
-	case 6:
-		res := ApplyOp{
-			Ops: make([]ProofOperator, 4),
-		}
-		for i := range res.Ops {
-			res.Ops[i] = randomGenerateProofOperator()
-		}
-		return res
+		/*
+			case 5:
+				res := AssertValuesOp{
+					Values: make([][]byte, 8),
+				}
+				for i := range res.Values {
+					rand.Read(res.Values[i])
+				}
+				return res
+			case 6:
+				res := ApplyOp{
+					Ops: make([]ProofOperator, 4),
+				}
+				for i := range res.Ops {
+					res.Ops[i] = randomGenerateProofOperator()
+				}
+				return res
+		*/
 	default:
 		panic("should not reach here")
 	}

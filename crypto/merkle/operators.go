@@ -255,12 +255,11 @@ const OpTypeAssertValues = "assert_values"
 func (op AssertValuesOp) Argn() int { return -1 }
 
 func (op AssertValuesOp) Run(values [][]byte) ([][]byte, error) {
-	accepted := make(map[string]struct{})
-	for _, v := range op.Values {
-		accepted[string(v)] = struct{}{}
+	if len(op.Values) != len(values) {
+		return nil, cmn.NewError("hhh")
 	}
-	for _, v := range values {
-		if _, ok := accepted[string(v)]; !ok {
+	for i, v := range op.Values {
+		if !bytes.Equal(v, values[i]) {
 			return nil, cmn.NewError("ttt")
 		}
 	}
